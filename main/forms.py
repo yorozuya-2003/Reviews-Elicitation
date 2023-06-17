@@ -86,14 +86,6 @@ class CustomAuthenticationForm(forms.Form):
             raise forms.ValidationError("The password entered is either incorrect or invalid.")
         return self.cleaned_data
 
-    def clean_email(self):
-        email = self.cleaned_data.get('email')
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            raise forms.ValidationError("This email id is not registered.")
-        return email
-
 
 class OTPVerificationForm(forms.Form):
     otp = forms.CharField(min_length=6, max_length=6, required=True, widget=forms.TextInput(attrs={'placeholder': 'Enter OTP'}))

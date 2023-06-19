@@ -96,9 +96,31 @@ class OTPVerificationForm(forms.Form):
 
 
 class ProfileForm(forms.ModelForm):
+    profile_image = forms.ImageField(required=False, widget=forms.FileInput)
+    # remove_photo = forms.BooleanField(required=False)
+
     class Meta:
         model = models.UserProfile
         fields = ['profile_image']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
+        if instance and instance.profile_image:
+            self.fields['remove_photo'] = forms.BooleanField(required=False)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        if self.cleaned_data.get('remove_photo'):
+            instance.profile_image.delete()
+            instance.profile_image = None
+
+        if commit:
+            instance.save()
+
+        return instance
+
 
 
 class ProfileDetailsForm(forms.Form):

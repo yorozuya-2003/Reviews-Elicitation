@@ -1,8 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-from cloudinary.models import CloudinaryField
-
 
 class UserProfile(models.Model):
     GENDER_CHOICES = (
@@ -13,8 +11,7 @@ class UserProfile(models.Model):
     )
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # profile_image = models.ImageField(upload_to='profile_images', blank=True, null=True)
-    profile_image = CloudinaryField('image', blank=True, null=True)
+    profile_image = models.ImageField(upload_to='profile_images', blank=True, null=True)
     contact_number = models.CharField(max_length=10)
     bio = models.TextField(blank=True, null=True)
     gender = models.CharField(max_length=1, default='N', choices=GENDER_CHOICES)
@@ -63,13 +60,16 @@ class Review(models.Model):
     def get_downvotes_count(self):
         return self.downvotes.count()
     
-    def review_content(self):
-        ToUser = User.objects.get(username=self.to_user)
+    def review_giver(self):
         if self.anonymous_from == 'Anonymous':
-            return f'Anonymous => {ToUser.first_name} {ToUser.last_name}: {self.review} (Rating : {self.review_rating})'
+            return f'Anonymous'
         else:
             FromUser = User.objects.get(username=self.from_user)
-            return f'{FromUser.first_name} {FromUser.last_name} => {ToUser.first_name} {ToUser.last_name}: {self.review} (Rating : {self.review_rating})'
+            return f'{FromUser.first_name} {FromUser.last_name}'
+        
+    def review_receiver(self):
+        ToUser = User.objects.get(username=self.to_user)
+        return f'{ToUser.first_name} {ToUser.last_name}'
     
     def __str__(self):
         return f'{self.from_user} => {self.to_user} : {self.review}'

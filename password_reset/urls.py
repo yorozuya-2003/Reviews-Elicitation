@@ -13,4 +13,4 @@ urlpatterns = [
     path('invalid/', views.password_reset_invalid, name='invalid'),
     path('sent/', views.password_reset_sent, name='sent')
 
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

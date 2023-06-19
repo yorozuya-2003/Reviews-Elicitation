@@ -6,6 +6,9 @@ from . import models
 from ReviewsElicitation.settings import EMAIL_HOST_USER
 import random
 
+from cloudinary.forms import CloudinaryFileField
+from cloudinary import uploader
+
 class CustomUserCreationForm(UserCreationForm):
     first_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={'placeholder': 'First Name'}))
     last_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={'placeholder': 'Last Name'}))
@@ -96,7 +99,8 @@ class OTPVerificationForm(forms.Form):
 
 
 class ProfileForm(forms.ModelForm):
-    profile_image = forms.ImageField(required=False, widget=forms.FileInput)
+    # profile_image = forms.CloudinaryField(required=False, widget=forms.FileInput)
+    profile_image = CloudinaryFileField(required=False, widget=forms.FileInput)
     # remove_photo = forms.BooleanField(required=False)
 
     class Meta:
@@ -113,7 +117,8 @@ class ProfileForm(forms.ModelForm):
         instance = super().save(commit=False)
 
         if self.cleaned_data.get('remove_photo'):
-            instance.profile_image.delete()
+            if instance.profile_image:
+                uploader.destroy(instance.profile_image.public_id)
             instance.profile_image = None
 
         if commit:

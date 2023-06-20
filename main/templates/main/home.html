@@ -467,7 +467,7 @@
                 {% else %}
                 <p class="heading">{{ review.review_giver }}</p>
                 {% endif %}
-                <p class="content">{{ review.review }}</p>
+                <p class="content">{{ review.review }} (Rating: {{review.review_rating}})</p>
                 <br/>
                 <!-- <div class="votes">
                     <p class="vote-count">Upvotes: {{ review.get_upvotes_count }}</p>
@@ -507,7 +507,7 @@
             {% for review in giv_reviews %}
                 <li>
                     <a href="{% url 'main:user' username=review.to_user %}"><p class="heading">{{ review.review_receiver }}</p></a>
-                    <p class="content">{{ review.review }}</p>
+                    <p class="content">{{ review.review }} (Rating: {{review.review_rating}})</p>
                     <br/>
                     <!-- <div class="votes">
                         <p class="vote-count">Upvotes: {{ review.get_upvotes_count }}</p>

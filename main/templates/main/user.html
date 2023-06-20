@@ -528,7 +528,7 @@
                 <p class="heading">{{ review.review_giver }}</p>
                 {% endif %}
                 <!-- <p class="heading">{{ review.review_giver }}</p> -->
-                <p class="content">{{ review.review }}</p>
+                <p class="content">{{ review.review }} (Rating: {{review.review_rating}})</p>
                 <br/>
                 <!-- <div class="votes"> -->
                     <!-- <p>Upvotes: {{ review.get_upvotes_count }}</p> -->
@@ -594,7 +594,7 @@
                 <!-- {%  else %} -->
                 <p class="heading">{{ review.review_receiver }}</p>
                 <!-- {% endif %} -->
-                <p class="content">{{ review.review }}</p>
+                <p class="content">{{ review.review }} (Rating: {{review.review_rating}})</p>
                 <br/>
                 <!-- <div class="votes">
                     <p>Upvotes: {{ review.get_upvotes_count }}</p>
@@ -637,26 +637,26 @@
         <form method="post" enctype="multipart/form-data" class="add-form">
             {% csrf_token %}
             <div>
-                {{ reviewform.review }}
                 {{ reviewform.review.errors }}
+                {{ reviewform.review }}
             </div>
             <div style="display: flex; flex-direction: row; align-items: center;">
                 <label style="margin-right: 10px;">Rating</label>
-                {{ reviewform.review_rating }}
                 {{ reviewform.review_rating.errors }}
+                {{ reviewform.review_rating }}
                 <p id="rating-value" style="margin-left: 10px;">1</p> 
             </div>
             <div style="display: flex; flex-direction: row; align-items: center;">
                 <label syle="margin-right: 10px;">Anonymous Review</label>
-                {{ reviewform.is_anonymous }}
                 {{ reviewform.is_anonymous.errors }}
+                {{ reviewform.is_anonymous }}
                 <button type="submit" style="background-color: #333; margin-left: 20px;" class="submit-review" name="review-form">Submit Review</button>
             </div>
         </form>
         {% endif %}
 
         <script>
-            const slider = document.getElementById("id_review_rating");
+            const slider = document.getElementById("review-rating");
             var output = document.getElementById("rating-value");
 
             slider.oninput = function() {

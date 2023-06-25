@@ -1,9 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-
-
-from cloudinary.models import CloudinaryField
-
+from django.conf import settings
 
 class UserProfile(models.Model):
     GENDER_CHOICES = (
@@ -14,8 +11,16 @@ class UserProfile(models.Model):
     )
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # profile_image = models.ImageField(upload_to='profile_images', blank=True, null=True)
-    profile_image = CloudinaryField('image', blank=True, null=True)
+    
+    if settings.DEBUG:
+        profile_image = models.ImageField(upload_to='profile_images', blank=True, null=True)
+    
+    ### deployment changes in media file field ###
+    else:
+        from cloudinary.models import CloudinaryField
+        profile_image = CloudinaryField('image', blank=True, null=True)
+    ### end of deployment changes ###
+
     contact_number = models.CharField(max_length=10)
     bio = models.TextField(blank=True, null=True)
     gender = models.CharField(max_length=1, default='N', choices=GENDER_CHOICES)
@@ -28,10 +33,18 @@ class Review(models.Model):
     to_user = models.CharField(max_length=100)
     from_user = models.CharField(max_length=100)
 
-    # review questions
-    review = models.TextField()
-    review_rating = models.IntegerField(default=1)
+    review_rating_1 = models.IntegerField(default=0)
+    review_rating_2 = models.IntegerField(default=0)
+    review_rating_3 = models.IntegerField(default=0)
+
+    problem_solving = models.TextField(max_length=1000, default='')
+    communication = models.TextField(max_length=1000, default='')
+    sociability = models.TextField(max_length=1000, default='')
     
+    problem_solving_bool = models.BooleanField(default=False)
+    communication_bool = models.BooleanField(default=False)
+    sociability_bool = models.BooleanField(default=False)
+
     is_anonymous = models.BooleanField(default=False)
     anonymous_from = models.CharField(max_length=100)
 
@@ -75,5 +88,11 @@ class Review(models.Model):
         ToUser = User.objects.get(username=self.to_user)
         return f'{ToUser.first_name} {ToUser.last_name}'
     
+    def has_upvoted(self, user):
+        return user in self.upvotes.all()
+    
+    def has_downvoted(self, user):
+        return user in self.downvotes.all()
+
     def __str__(self):
-        return f'{self.from_user} => {self.to_user} : {self.review}'
+        return f'{self.from_user} => {self.to_user}'

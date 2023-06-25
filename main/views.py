@@ -1,4 +1,5 @@
-from django.shortcuts import render, redirect, HttpResponsePermanentRedirect, HttpResponseRedirect
+from django.shortcuts import render, redirect, HttpResponseRedirect
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth import update_session_auth_hash, authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -9,6 +10,7 @@ from django.views.decorators.cache import cache_control
 
 from . import forms
 from . import models
+from . import review_criteria
 
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def login_view(request):
@@ -98,9 +100,44 @@ def home_view(request):
     user = request.user
     reviews = models.Review.objects.all()
     rec_reviews = reviews.filter(to_user=user.username)
-    giv_reviews = reviews.filter(from_user=user.username)  
+    giv_reviews = reviews.filter(from_user=user.username)
 
-    # upvote-downvote
+    processed_giv_reviews = []
+    for review in giv_reviews:
+        processed_giv_reviews.append({
+            'review': review,
+            'has_upvoted': review.has_upvoted(user),
+            'has_downvoted': review.has_downvoted(user), 
+        })
+
+    processed_rec_reviews = []
+    for review in rec_reviews:
+        processed_rec_reviews.append({
+            'review': review,
+            'has_upvoted': review.has_upvoted(user),
+            'has_downvoted': review.has_downvoted(user), 
+        })
+
+    return render(request, 'main/home.html',
+        {
+            'user': user,
+            'reviews':reviews,
+            'rec_reviews': rec_reviews,
+            'giv_reviews': giv_reviews,
+            'processed_rec_reviews':processed_rec_reviews,
+            'processed_giv_reviews':processed_giv_reviews,
+
+            'problem_solving': review_criteria.problem_solving,
+            'communication': review_criteria.communication,
+            'sociability': review_criteria.sociability,
+        }
+    )
+
+
+@login_required
+def vote_view(request):
+    user = request.user
+
     if request.method == 'POST':
         if 'action' in request.POST:
             review_id = request.POST.get('review_id')
@@ -112,16 +149,19 @@ def home_view(request):
             elif action == 'downvote':
                 review.downvote(user)
             review.save()
-            return redirect('main:home')
 
-    return render(request, 'main/home.html',
-        {
-            'user': user,
-            'reviews':reviews,
-            'rec_reviews':rec_reviews,
-            'giv_reviews':giv_reviews,
-        }
-    )
+            response_data = {
+                'success':True,
+                'review_id': review_id,
+                'upvotes_count': review.get_upvotes_count(),
+                'downvotes_count': review.get_downvotes_count(),
+                'has_upvoted': review.has_upvoted(user),
+                'has_downvoted': review.has_downvoted(user),
+            }
+
+        return JsonResponse(response_data)
+    
+    return JsonResponse({'success':False, })
 
 
 @login_required
@@ -190,6 +230,7 @@ def update_bio_view(request):
 
     return render(request, 'main/update_bio.html', { 'form':form, })
 
+
 @login_required
 def user_view(request, username):
     if request.user.username == username:
@@ -200,25 +241,46 @@ def user_view(request, username):
         reviews = models.Review.objects.all()
         rec_reviews = reviews.filter(to_user=username)
         giv_reviews = reviews.filter(anonymous_from=username)
+        
+        current_user = request.user
+
+        curr_user_rec_review = rec_reviews.filter(from_user=current_user).first()
+        curr_user_giv_review = giv_reviews.filter(to_user=current_user).first()
+        rec_reviews = rec_reviews.exclude(from_user=current_user)
+        giv_reviews = giv_reviews.exclude(to_user=current_user)
+
+        processed_giv_reviews = []
+        if curr_user_giv_review is not None:
+            processed_giv_reviews.append({
+                'review': curr_user_giv_review,
+                'has_upvoted': curr_user_giv_review.has_upvoted(current_user),
+                'has_downvoted': curr_user_giv_review.has_downvoted(current_user),
+            })
+        for review in giv_reviews:
+            processed_giv_reviews.append({
+                'review': review,
+                'has_upvoted': review.has_upvoted(current_user),
+                'has_downvoted': review.has_downvoted(current_user), 
+            })
+
+        processed_rec_reviews = []
+        if curr_user_rec_review is not None:
+            processed_rec_reviews.append({
+                'review': curr_user_rec_review,
+                'has_upvoted': curr_user_rec_review.has_upvoted(current_user),
+                'has_downvoted': curr_user_rec_review.has_downvoted(current_user),
+            })
+        for review in rec_reviews:
+            processed_rec_reviews.append({
+                'review': review,
+                'has_upvoted': review.has_upvoted(current_user),
+                'has_downvoted': review.has_downvoted(current_user), 
+            })
 
         existing_review = reviews.filter(to_user=username, from_user=request.user.username).first()
 
         if request.method == 'POST':
-            # upvote-downvote
-            if 'action' in request.POST:
-                review_id = request.POST.get('review_id')
-                action = request.POST.get('action')
-                review = models.Review.objects.get(id=review_id)
-
-                if action == 'upvote':
-                    review.upvote(request.user)
-                elif action == 'downvote':
-                    review.downvote(request.user)
-                review.save()
-                return redirect('main:user', username=username)
-
-            # review form
-            else:
+            if 'action' not in request.POST:
                 reviewform = forms.ReviewForm(request.POST, instance=existing_review)
                 if reviewform.is_valid():
                     review = reviewform.save(commit=False)
@@ -242,7 +304,13 @@ def user_view(request, username):
                 'reviews':reviews,
                 'rec_reviews':rec_reviews,
                 'giv_reviews':giv_reviews,
+                'processed_rec_reviews':processed_rec_reviews,
+                'processed_giv_reviews':processed_giv_reviews,
                 'existing_review':existing_review,
+
+                'problem_solving': review_criteria.problem_solving,
+                'communication': review_criteria.communication,
+                'sociability': review_criteria.sociability,
             }
         )
 
@@ -279,8 +347,10 @@ def edit_view(request, review_id):
     
     if str(request.user.username) == str(review.from_user):
         if request.method == 'POST':
+            
             if 'edit-review' in request.POST:
                 form = forms.ReviewForm(request.POST, instance=review)
+                
                 if form.is_valid():
                     updated_review = form.save(commit=False)
                     if form.cleaned_data['is_anonymous']:
@@ -289,13 +359,28 @@ def edit_view(request, review_id):
                         updated_review.anonymous_from = request.user.username
                     updated_review.save()
                     return redirect('main:user', username=str(review.to_user))
+            
             else:
                 form = forms.ReviewForm(instance=review)
-                return render(request, 'main/edit.html', { 'form':form, 'review_id':review_id, 'review':review, 'username':review.to_user, })
+                return render(request, 'main/edit.html',
+                    {
+                        'form':form, 'review_id':review_id, 'review':review, 'username':review.to_user, 
+                        'problem_solving': review_criteria.problem_solving,
+                        'communication': review_criteria.communication,
+                        'sociability': review_criteria.sociability,
+                    }
+                )
             
         else:
             form = forms.ReviewForm(instance=review)
-            return render(request, 'main/edit.html', { 'form':form, 'review_id':review_id, 'review':review, 'username':review.to_user, })
+            return render(request, 'main/edit.html', 
+                {
+                    'form':form, 'review_id':review_id, 'review':review, 'username':review.to_user, 
+                    'problem_solving': review_criteria.problem_solving,
+                    'communication': review_criteria.communication,
+                    'sociability': review_criteria.sociability,
+                }
+            )
         
     return redirect('main:user', username=str(review.to_user))
 
@@ -334,3 +419,30 @@ def password_change_view(request):
     return render(request, 'main/password_change.html', { 'form':form, })
 
 
+def is_ajax(request):
+    return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+
+@login_required
+def public_private_view(request):
+    if request.method == 'POST' and is_ajax(request):
+        review_id = request.POST.get('review_id')
+        skill = request.POST.get('skill')
+
+        bool_val = False
+
+        review = models.Review.objects.get(id=review_id)
+        if skill == 'problem_solving':
+            review.problem_solving_bool = not review.problem_solving_bool
+            bool_val = review.problem_solving_bool
+        elif skill == 'communication':
+            review.communication_bool = not review.communication_bool
+            bool_val = review.communication_bool
+        elif skill == 'sociability':
+            review.sociability_bool = not review.sociability_bool
+            bool_val = review.sociability_bool
+
+        review.save()
+        
+        return JsonResponse({ 'success':True, 'skill':skill, 'review_id':review_id, 'bool_val':bool_val, }, safe=False)
+    
+    return JsonResponse({ 'success':False, }, safe=False)

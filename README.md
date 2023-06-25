@@ -1,10 +1,9 @@
-# Reviews-Elicitation-Deployment
-This repo handles the deployment-based files for the parent-repo: https://github.com/VinayVaishnav/Reviews-Elicitation
+# Reviews-Elicitation-WebApp
+A web application platform for reviewing users based on their soft skills.
 
-## Platforms used for hosting the website
-
-- Render: Handles the website, database and also the static files
-- Cloudinary: Handles the media files for the website
+## Deployment
+The website is deployed currently on: https://reviews-elicitation.onrender.com/  
+The deployment-related files can be found at the child repo: https://github.com/yorozuya-2003/Reviews-Elicitation-Deployment
 
 ## Authors
 

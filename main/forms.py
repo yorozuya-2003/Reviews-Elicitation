@@ -5,9 +5,7 @@ from django.core.mail import send_mail
 from . import models
 from ReviewsElicitation.settings import EMAIL_HOST_USER
 import random
-
-from cloudinary.forms import CloudinaryFileField
-from cloudinary import uploader
+from django.conf import settings
 
 class CustomUserCreationForm(UserCreationForm):
     first_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={'placeholder': 'First Name'}))
@@ -40,8 +38,8 @@ class CustomUserCreationForm(UserCreationForm):
         request.session['otp'] = otp
 
         send_mail(
-            'OTP Verification',
-            f'Your OTP is {otp}',
+            'OTP Verification - Talent Hunt',
+            f'Your one-time-password for registration is {otp}. Please refrain from sharing it with anyone.',
             EMAIL_HOST_USER,
             [email],
             fail_silently=False,
@@ -99,9 +97,14 @@ class OTPVerificationForm(forms.Form):
 
 
 class ProfileForm(forms.ModelForm):
-    # profile_image = forms.CloudinaryField(required=False, widget=forms.FileInput)
-    profile_image = CloudinaryFileField(required=False, widget=forms.FileInput)
-    # remove_photo = forms.BooleanField(required=False)
+    if settings.DEBUG:
+        profile_image = forms.ImageField(required=False, widget=forms.FileInput)
+
+    ### deployment changes in media file field ###
+    else:
+        from cloudinary.forms import CloudinaryFileField
+        profile_image = CloudinaryFileField(required=False, widget=forms.FileInput)
+    ### end of deployment changes ###
 
     class Meta:
         model = models.UserProfile
@@ -109,6 +112,7 @@ class ProfileForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['profile_image'].label = ''
         instance = kwargs.get('instance')
         if instance and instance.profile_image:
             self.fields['remove_photo'] = forms.BooleanField(required=False)
@@ -116,16 +120,24 @@ class ProfileForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
 
-        if self.cleaned_data.get('remove_photo'):
-            if instance.profile_image:
-                uploader.destroy(instance.profile_image.public_id)
-            instance.profile_image = None
+        if settings.DEBUG:
+            if self.cleaned_data.get('remove_photo'):
+                instance.profile_image.delete()
+                instance.profile_image = None
+
+        ### deployment changes to handle media file deletion ###
+        else:
+            from cloudinary import uploader
+            if self.cleaned_data.get('remove_photo'):
+                if instance.profile_image:
+                    uploader.destroy(instance.profile_image.public_id)
+                instance.profile_image = None
+        ### end of deployment changes ###
 
         if commit:
             instance.save()
 
         return instance
-
 
 
 class ProfileDetailsForm(forms.Form):
@@ -191,6 +203,7 @@ class BioForm(forms.Form):
 
         self.fields['bio'].label = ''
         self.fields['bio'].initial = user.userprofile.bio
+        self.fields['bio'].widget.attrs['class'] = 'bio-textarea'
 
     def save(self, user):
         profile = models.UserProfile.objects.get(user=user)
@@ -199,20 +212,29 @@ class BioForm(forms.Form):
 
 
 class ReviewForm(forms.ModelForm):
+    problem_solving = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'problem_solving-textarea', 'placeholder': 'Write about problem solving skills here...'}))
+    communication = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'communication-textarea', 'placeholder': 'Write about communicational skills here...'}))
+    sociability = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'sociability-textarea', 'placeholder': 'Write about sociability here...'}))
+
     class Meta:
         model = models.Review
-        fields = ['review', 'review_rating', 'is_anonymous']
+        fields = ['review_rating_1', 'review_rating_2', 'review_rating_3','problem_solving','communication','sociability', 'is_anonymous']
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['review'].label = ''
-        self.fields['is_anonymous'].label = 'Anonymous Review'
-        self.fields['review_rating'].label = ''
-
-        self.fields['review'].widget.attrs['placeholder'] = 'Write your review here...'
-        self.fields['review_rating'].widget = forms.NumberInput(attrs={'type': 'range', 'min': '1', 'max': '10', 'step': '1'})
-        self.fields['review_rating'].widget.attrs['id'] = 'review-rating'
-
+        widgets = {
+            'review_rating_1': forms.NumberInput(attrs={'class': 'slider', 'id': 'review-rating-1', 'class': 'review-rating-input', 'type': 'range', 'min': '0', 'max': '5', 'step': '1'}),
+            'review_rating_2': forms.NumberInput(attrs={'class': 'slider', 'id': 'review-rating-2', 'class': 'review-rating-input', 'type': 'range', 'min': '0', 'max': '5', 'step': '1'}),
+            'review_rating_3': forms.NumberInput(attrs={'class': 'slider', 'id': 'review-rating-3', 'class': 'review-rating-input', 'type': 'range', 'min': '0', 'max': '5', 'step': '1'}),
+            'is_anonymous': forms.CheckboxInput(attrs={'class': 'is-anonymous-checkbox'}),
+        }
+        labels = {
+            'problem_solving':'',
+            'communication':'',
+            'sociability':'',
+            'review_rating_1': '',
+            'review_rating_2': '',
+            'review_rating_3': '',
+            'is_anonymous': 'Anonymous Review',
+        }
 
     def clean(self):
         cleaned_data = super().clean()
@@ -228,9 +250,9 @@ class ReviewForm(forms.ModelForm):
 
         
 class CustomPasswordChangeForm(PasswordChangeForm):
-    old_password = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'placeholder': 'Old Password'}))
-    new_password1 = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'placeholder': 'New Password'}))
-    new_password2 = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'placeholder': 'Confirm New Password'}))
+    old_password = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'placeholder': 'Old Password', 'class':'pass'}))
+    new_password1 = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'placeholder': 'New Password', 'class':'pass'}))
+    new_password2 = forms.CharField(required=True, widget=forms.PasswordInput(attrs={'placeholder': 'Confirm New Password', 'class':'pass'}))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
